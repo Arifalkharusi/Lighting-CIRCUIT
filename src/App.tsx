@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import ReactFlow, {
@@ -35,8 +35,8 @@ export interface ElectricalComponent {
   position: { x: number; y: number };
   terminals: Record<string, Terminal>;
   properties: {
-    isOpen?: boolean;       // OneWaySwitch: open = no connection
-    switchPos?: boolean;    // Two/Intermediate: false = Pos A, true = Pos B
+    isOpen?: boolean;
+    switchPos?: boolean;
     isEnergized?: boolean;
   };
 }
@@ -291,6 +291,7 @@ const useElectricalStore = create<ElectricalState>()(
           { isEnergized: false };
 
         const newComp: ElectricalComponent = { id, type, name: type, position: { x, y }, terminals, properties: props };
+        
         set(state => ({ components: { ...state.components, [id]: newComp } }));
         get().runSimulation();
       },
@@ -304,10 +305,12 @@ const useElectricalStore = create<ElectricalState>()(
 
       connectArbitraryTerminals: (sourceTerminalId, targetTerminalId) => {
         if (sourceTerminalId === targetTerminalId) return;
+        
         const exists = get().conductors.find(
           c => (c.sourceTerminalId === sourceTerminalId && c.targetTerminalId === targetTerminalId) ||
                (c.sourceTerminalId === targetTerminalId && c.targetTerminalId === sourceTerminalId)
         );
+        
         if (exists) return;
 
         get().saveHistory();
@@ -317,6 +320,7 @@ const useElectricalStore = create<ElectricalState>()(
           id: `wire_${Math.random().toString(36).substr(2, 5)}`,
           color, sourceTerminalId, targetTerminalId
         };
+        
         set(state => ({ conductors: [...state.conductors, newCond] }));
         get().runSimulation();
       },
@@ -396,6 +400,7 @@ const ConsumerUnitNode: React.FC<{ id: string }> = ({ id }) => (
 
 const RealisticCeilingRoseNode: React.FC<{ id: string; data: any }> = ({ id, data }) => {
   const isLit = data.properties?.isEnergized;
+
   return (
     <div className={`w-72 h-72 rounded-full bg-zinc-900 border-4 transition-all duration-300 relative flex flex-col items-center justify-center p-4 ${isLit ? 'border-amber-400 shadow-[0_0_40px_rgba(251,191,36,0.5)]' : 'border-zinc-700 shadow-2xl'}`}>
       <div className="absolute inset-2 border-2 border-dashed border-zinc-800 rounded-full pointer-events-none" />
@@ -448,6 +453,7 @@ const RealisticCeilingRoseNode: React.FC<{ id: string; data: any }> = ({ id, dat
 const RealisticOneWaySwitchNode: React.FC<{ id: string; data: any }> = ({ id, data }) => {
   const isOpen = data.properties?.isOpen;
   const toggle = useElectricalStore(s => s.toggleSwitch);
+  
   return (
     <div className="w-56 h-72 bg-zinc-900 border-4 border-zinc-700 rounded-xl p-4 shadow-2xl relative flex flex-col justify-between">
       <div className="absolute inset-1 border border-zinc-800 rounded-lg pointer-events-none" />
@@ -490,6 +496,7 @@ const RealisticOneWaySwitchNode: React.FC<{ id: string; data: any }> = ({ id, da
 const RealisticTwoWaySwitchNode: React.FC<{ id: string; data: any }> = ({ id, data }) => {
   const pos = data.properties?.switchPos ?? false;
   const toggle = useElectricalStore(s => s.toggleSwitch);
+  
   return (
     <div className="w-56 bg-zinc-900 border-4 border-indigo-800 rounded-xl p-4 shadow-2xl relative flex flex-col gap-3">
       <div className="absolute inset-1 border border-zinc-800 rounded-lg pointer-events-none" />
@@ -548,6 +555,7 @@ const RealisticTwoWaySwitchNode: React.FC<{ id: string; data: any }> = ({ id, da
 const RealisticIntermediateSwitchNode: React.FC<{ id: string; data: any }> = ({ id, data }) => {
   const pos = data.properties?.switchPos ?? false;
   const toggle = useElectricalStore(s => s.toggleSwitch);
+  
   return (
     <div className="w-64 bg-zinc-900 border-4 border-fuchsia-800 rounded-xl p-4 shadow-2xl relative flex flex-col gap-3">
       <div className="absolute inset-1 border border-zinc-800 rounded-lg pointer-events-none" />
@@ -689,6 +697,7 @@ const nodeTypes = {
 // ==========================================
 export const SimulatorCanvas: React.FC = () => {
   const { components, conductors, addComponent, updateComponentPosition, connectArbitraryTerminals, removeConductor } = useElectricalStore();
+  
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
@@ -708,6 +717,7 @@ export const SimulatorCanvas: React.FC = () => {
       GreenYellow: '#10b981',
       Yellow: '#eab308',
     };
+    
     setEdges(conductors.map(c => ({
       id: c.id,
       source: c.sourceTerminalId.split('::')[0],
@@ -771,90 +781,119 @@ export const SimulatorCanvas: React.FC = () => {
 // 7. TOOLBOX SIDEBAR
 // ==========================================
 export const Toolbox: React.FC = () => {
-  const { selectedCoreColor, setCoreColor, clearWorkspace, undo, past } = useElectricalStore();
+  const { selectedCoreColor, setCoreColor, clearWorkspace, undo, past, addComponent } = useElectricalStore();
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const handleDragStart = (e: React.DragEvent, type: ComponentType) => {
     e.dataTransfer.setData('application/reactflow', type);
     e.dataTransfer.effectAllowed = 'move';
   };
 
+  const handleItemClick = (type: ComponentType) => {
+    const offset = Math.floor(Math.random() * 40) - 20;
+    addComponent(type, 200 + offset, 200 + offset);
+  };
+
   return (
-    <aside className="w-80 bg-[#111114] border-r border-zinc-800/90 p-4 text-zinc-200 flex flex-col justify-between z-50 relative overflow-y-auto">
-      <div className="space-y-6">
+    <aside 
+      className={`bg-[#111114] border-r border-zinc-800/90 text-zinc-200 flex flex-col justify-between z-50 relative transition-all duration-300 ease-in-out ${
+        isCollapsed ? 'w-0 border-r-0' : 'w-80'
+      }`}
+    >
+      <button 
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        className="absolute -right-8 top-4 w-8 h-8 bg-[#111114] border border-l-0 border-zinc-800/90 rounded-r flex items-center justify-center text-zinc-400 hover:text-white transition-colors z-50"
+        title={isCollapsed ? "Expand Toolbox" : "Collapse Toolbox"}
+      >
+        {isCollapsed ? (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
+        ) : (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6"/></svg>
+        )}
+      </button>
 
-        <div>
-          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-2">Conductor Colour</span>
-          <div className="grid grid-cols-2 gap-1.5">
-            {[
-              { id: 'Brown', name: 'Live (Brn)', bg: 'bg-amber-700' },
-              { id: 'Blue', name: 'Neutral (Blu)', bg: 'bg-blue-500' },
-              { id: 'GreenYellow', name: 'Earth (G/Y)', bg: 'bg-emerald-500' },
-              { id: 'Yellow', name: 'Strapwire (Ylw)', bg: 'bg-yellow-400' },
-            ].map(wire => (
-              <button key={wire.id} onClick={() => setCoreColor(wire.id as any)}
-                className={`p-2 rounded text-[11px] font-mono font-medium border flex items-center gap-2 transition-all ${selectedCoreColor === wire.id ? 'border-amber-400 bg-zinc-900 text-white' : 'border-zinc-800 bg-zinc-950 text-zinc-400'}`}>
-                <div className={`w-3 h-3 rounded-full flex-shrink-0 ${wire.bg}`} />
-                {wire.name}
-              </button>
-            ))}
+      <div className={`p-4 flex flex-col justify-between h-full overflow-y-auto transition-opacity duration-200 ${isCollapsed ? 'opacity-0 pointer-events-none hidden' : 'opacity-100'}`}>
+        <div className="space-y-6">
+
+          <div>
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-2">Conductor Colour</span>
+            <div className="grid grid-cols-2 gap-1.5">
+              {[
+                { id: 'Brown', name: 'Live (Brn)', bg: 'bg-amber-700' },
+                { id: 'Blue', name: 'Neutral (Blu)', bg: 'bg-blue-500' },
+                { id: 'GreenYellow', name: 'Earth (G/Y)', bg: 'bg-emerald-500' },
+                { id: 'Yellow', name: 'Strapwire (Ylw)', bg: 'bg-yellow-400' },
+              ].map(wire => (
+                <button key={wire.id} onClick={() => setCoreColor(wire.id as any)}
+                  className={`p-2 rounded text-[11px] font-mono font-medium border flex items-center gap-2 transition-all ${selectedCoreColor === wire.id ? 'border-amber-400 bg-zinc-900 text-white' : 'border-zinc-800 bg-zinc-950 text-zinc-400'}`}>
+                  <div className={`w-3 h-3 rounded-full flex-shrink-0 ${wire.bg}`} />
+                  {wire.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-2">Component Inventory</span>
+            <div className="space-y-2">
+              {[
+                { type: 'ConsumerUnit', name: 'UK Consumer Unit', desc: '230V L/N/E source' },
+                { type: 'CeilingRose', name: 'Ceiling Rose', desc: 'Loop-in / SW-live / Neutral' },
+                { type: 'OneWaySwitch', name: '1-Way Switch', desc: 'COM → L1 (open/close)' },
+                { type: 'TwoWaySwitch', name: '2-Way Switch', desc: 'COM → L1 or L2' },
+                { type: 'IntermediateSwitch', name: 'Intermediate Switch', desc: 'Crosses strap wires for 3+ switches' },
+                { type: 'ConnectorBlock', name: '5-Pole Connector Block', desc: 'Pass-through inline junction box' },
+              ].map(item => (
+                <div 
+                  key={item.type} 
+                  draggable 
+                  onDragStart={e => handleDragStart(e, item.type as ComponentType)}
+                  onClick={() => handleItemClick(item.type as ComponentType)}
+                  className={`p-3 bg-zinc-900 border rounded cursor-pointer hover:bg-zinc-800 active:scale-[0.98] select-none transition-all 
+                    ${item.type === 'ConnectorBlock' ? 'border-stone-600 hover:border-stone-400' : item.type === 'IntermediateSwitch' ? 'border-fuchsia-800/60 hover:border-fuchsia-600' : 'border-zinc-800/80'}`}
+                >
+                  <div className="text-xs font-medium text-zinc-200 flex justify-between items-center">
+                    {item.name}
+                    <span className="text-[9px] text-zinc-600 font-mono tracking-tighter">Click/Drag</span>
+                  </div>
+                  <div className="text-[9px] text-zinc-500 font-mono mt-0.5">{item.desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-zinc-950 border border-zinc-800 rounded p-3 text-[9px] font-mono text-zinc-500 space-y-1">
+            <div className="text-amber-400 font-bold text-[10px] mb-2">Component Tips</div>
+            <div className="text-zinc-400 font-bold">Connector Block:</div>
+            <div>Left ports bridge directly to their corresponding Right ports. Useful for splitting feeds or extending cables cleanly.</div>
+          </div>
+
+          <div className="flex gap-2">
+            <button 
+              onClick={undo} 
+              disabled={past.length === 0}
+              className={`flex-1 py-2 text-xs rounded border transition-colors flex items-center justify-center gap-2
+                ${past.length > 0 
+                  ? 'bg-zinc-900 hover:bg-zinc-800 border-zinc-700 text-zinc-200' 
+                  : 'bg-zinc-950 border-zinc-900 text-zinc-600 cursor-not-allowed'}`}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+              Undo
+            </button>
+
+            <button 
+              onClick={clearWorkspace}
+              className="flex-1 py-2 bg-red-950/20 hover:bg-red-900/40 border border-red-900/50 text-xs rounded text-red-400 transition-colors"
+            >
+              Reset Canvas
+            </button>
           </div>
         </div>
 
-        <div>
-          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-2">Component Inventory</span>
-          <div className="space-y-2">
-            {[
-              { type: 'ConsumerUnit', name: 'UK Consumer Unit', desc: '230V L/N/E source' },
-              { type: 'CeilingRose', name: 'Ceiling Rose', desc: 'Loop-in / SW-live / Neutral' },
-              { type: 'OneWaySwitch', name: '1-Way Switch', desc: 'COM → L1 (open/close)' },
-              { type: 'TwoWaySwitch', name: '2-Way Switch', desc: 'COM → L1 or L2' },
-              { type: 'IntermediateSwitch', name: 'Intermediate Switch', desc: 'Crosses strap wires for 3+ switches' },
-              { type: 'ConnectorBlock', name: '5-Pole Connector Block', desc: 'Pass-through inline junction box' },
-            ].map(item => (
-              <div key={item.type} draggable onDragStart={e => handleDragStart(e, item.type as ComponentType)}
-                className={`p-3 bg-zinc-900 border rounded cursor-grab active:cursor-grabbing hover:bg-zinc-800 select-none transition-colors 
-                  ${item.type === 'ConnectorBlock' ? 'border-stone-600 hover:border-stone-400' : item.type === 'IntermediateSwitch' ? 'border-fuchsia-800/60 hover:border-fuchsia-600' : 'border-zinc-800/80'}`}>
-                <div className="text-xs font-medium text-zinc-200">{item.name}</div>
-                <div className="text-[9px] text-zinc-500 font-mono mt-0.5">{item.desc}</div>
-              </div>
-            ))}
-          </div>
+        <div className="mt-4 bg-zinc-950 p-3 rounded border border-zinc-800/80 font-mono text-[10px] text-zinc-500 space-y-1">
+          <div className="text-emerald-500 font-bold">✓ Circuit Solver v14</div>
+          <div>● 5-Pole pass-through logic active</div>
         </div>
-
-        {/* Wiring guide */}
-        <div className="bg-zinc-950 border border-zinc-800 rounded p-3 text-[9px] font-mono text-zinc-500 space-y-1">
-          <div className="text-amber-400 font-bold text-[10px] mb-2">Component Tips</div>
-          <div className="text-zinc-400 font-bold">Connector Block:</div>
-          <div>Left ports bridge directly to their corresponding Right ports. Useful for splitting feeds or extending cables cleanly.</div>
-        </div>
-
-        {/* Undo and Reset Canvas Actions */}
-        <div className="flex gap-2">
-          <button 
-            onClick={undo} 
-            disabled={past.length === 0}
-            className={`flex-1 py-2 text-xs rounded border transition-colors flex items-center justify-center gap-2
-              ${past.length > 0 
-                ? 'bg-zinc-900 hover:bg-zinc-800 border-zinc-700 text-zinc-200' 
-                : 'bg-zinc-950 border-zinc-900 text-zinc-600 cursor-not-allowed'}`}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
-            Undo
-          </button>
-
-          <button 
-            onClick={clearWorkspace}
-            className="flex-1 py-2 bg-red-950/20 hover:bg-red-900/40 border border-red-900/50 text-xs rounded text-red-400 transition-colors"
-          >
-            Reset Canvas
-          </button>
-        </div>
-
-      </div>
-
-      <div className="mt-4 bg-zinc-950 p-3 rounded border border-zinc-800/80 font-mono text-[10px] text-zinc-500 space-y-1">
-        <div className="text-emerald-500 font-bold">✓ Circuit Solver v14</div>
-        <div>● 5-Pole pass-through logic active</div>
       </div>
     </aside>
   );
