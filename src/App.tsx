@@ -43,7 +43,7 @@ export interface ElectricalComponent {
 
 export interface FreeConductor {
   id: string;
-  color: 'Brown' | 'Blue' | 'GreenYellow' | 'Yellow';
+  color: 'Brown' | 'Blue' | 'GreenYellow' | 'Yellow' | 'Black' | 'Grey';
   sourceTerminalId: string;
   targetTerminalId: string;
 }
@@ -196,9 +196,9 @@ interface ElectricalState {
   components: Record<string, ElectricalComponent>;
   conductors: FreeConductor[];
   userMode: UserMode;
-  selectedCoreColor: 'Brown' | 'Blue' | 'GreenYellow' | 'Yellow';
+  selectedCoreColor: 'Brown' | 'Blue' | 'GreenYellow' | 'Yellow' | 'Black' | 'Grey';
   past: Snapshot[];
-  setCoreColor: (color: 'Brown' | 'Blue' | 'GreenYellow' | 'Yellow') => void;
+  setCoreColor: (color: 'Brown' | 'Blue' | 'GreenYellow' | 'Yellow' | 'Black' | 'Grey') => void;
   addComponent: (type: ComponentType, x: number, y: number) => void;
   updateComponentPosition: (id: string, x: number, y: number) => void;
   connectArbitraryTerminals: (sourceTerminalId: string, targetTerminalId: string) => void;
@@ -374,7 +374,6 @@ const HS = "!w-4 !h-4 !border-2 !border-zinc-950 !shadow-sm !relative !left-0 !t
 // ==========================================
 // 5. NODE COMPONENTS
 // ==========================================
-
 const ConsumerUnitNode: React.FC<{ id: string }> = ({ id }) => (
   <div className="w-56 bg-zinc-950 border-2 border-zinc-700 rounded-lg p-4 shadow-2xl text-white">
     <div className="border-b border-zinc-800 pb-2 mb-3">
@@ -492,7 +491,6 @@ const RealisticOneWaySwitchNode: React.FC<{ id: string; data: any }> = ({ id, da
   );
 };
 
-// Two-Way Switch
 const RealisticTwoWaySwitchNode: React.FC<{ id: string; data: any }> = ({ id, data }) => {
   const pos = data.properties?.switchPos ?? false;
   const toggle = useElectricalStore(s => s.toggleSwitch);
@@ -551,7 +549,6 @@ const RealisticTwoWaySwitchNode: React.FC<{ id: string; data: any }> = ({ id, da
   );
 };
 
-// Intermediate Switch
 const RealisticIntermediateSwitchNode: React.FC<{ id: string; data: any }> = ({ id, data }) => {
   const pos = data.properties?.switchPos ?? false;
   const toggle = useElectricalStore(s => s.toggleSwitch);
@@ -629,7 +626,6 @@ const RealisticIntermediateSwitchNode: React.FC<{ id: string; data: any }> = ({ 
   );
 };
 
-// 5-Pole General Connector Block Component (Junction Box)
 const ConnectorBlockNode: React.FC<{ id: string }> = ({ id }) => {
   const poles = [
     { label: 'Pole 1', id: 'P1' },
@@ -652,20 +648,17 @@ const ConnectorBlockNode: React.FC<{ id: string }> = ({ id }) => {
         {poles.map(p => (
           <div key={p.id} className="grid grid-cols-5 items-center bg-stone-950 border border-stone-800 rounded p-1.5 relative">
             
-            {/* Left Port Handle */}
             <div className="col-span-1 flex justify-start items-center relative">
               <div className="w-5 h-5 bg-stone-800 border border-stone-600 rounded flex items-center justify-center">
                 <Handle type="source" position={Position.Left} id={`${id}::${p.id}_L`} className={`!bg-stone-500 ${HS}`} />
               </div>
             </div>
 
-            {/* Internal Brass Bridge Identifier */}
             <div className="col-span-3 text-center flex flex-col items-center justify-center">
               <div className="w-12 h-1 bg-amber-600/70 rounded-full mb-0.5" />
               <span className="text-[9px] font-mono font-bold text-stone-400">{p.label}</span>
             </div>
 
-            {/* Right Port Handle */}
             <div className="col-span-1 flex justify-end items-center relative">
               <div className="w-5 h-5 bg-stone-800 border border-stone-600 rounded flex items-center justify-center">
                 <Handle type="source" position={Position.Right} id={`${id}::${p.id}_R`} className={`!bg-stone-500 ${HS}`} />
@@ -716,24 +709,32 @@ export const SimulatorCanvas: React.FC = () => {
       Blue: '#3b82f6',
       GreenYellow: '#10b981',
       Yellow: '#eab308',
+      Black: '#27272a', // Off-black wire core color
+      Grey: '#71717a',  // Grey wire core color
     };
     
-    setEdges(conductors.map(c => ({
-      id: c.id,
-      source: c.sourceTerminalId.split('::')[0],
-      target: c.targetTerminalId.split('::')[0],
-      sourceHandle: c.sourceTerminalId,
-      targetHandle: c.targetTerminalId,
-      animated: true,
-      type: 'bezier',
-      zIndex: 50,
-      deletable: true,
-      style: {
-        stroke: colorMap[c.color] ?? '#888',
-        strokeWidth: 5,
-        filter: 'drop-shadow(0px 3px 5px rgba(0,0,0,0.8))',
-      },
-    })));
+    setEdges(conductors.map(c => {
+      const isBlackConductor = c.color === 'Black';
+      return {
+        id: c.id,
+        source: c.sourceTerminalId.split('::')[0],
+        target: c.targetTerminalId.split('::')[0],
+        sourceHandle: c.sourceTerminalId,
+        targetHandle: c.targetTerminalId,
+        animated: true,
+        type: 'bezier',
+        zIndex: 50,
+        deletable: true,
+        style: {
+          stroke: colorMap[c.color] ?? '#888',
+          strokeWidth: 5,
+          // Extra bright white drop shadow edge ring for black wires so they stand out clearly on dark themes
+          filter: isBlackConductor
+            ? 'drop-shadow(0px 0px 2px rgba(255,255,255,0.35)) drop-shadow(0px 2px 4px rgba(0,0,0,0.9))'
+            : 'drop-shadow(0px 3px 5px rgba(0,0,0,0.8))',
+        },
+      };
+    }));
   }, [conductors, setEdges]);
 
   const onNodeDragStop = useCallback((_: any, node: any) => {
@@ -781,7 +782,7 @@ export const SimulatorCanvas: React.FC = () => {
 // 7. TOOLBOX SIDEBAR
 // ==========================================
 export const Toolbox: React.FC = () => {
-  const { selectedCoreColor, setCoreColor, clearWorkspace, undo, past, addComponent } = useElectricalStore();
+  const { selectedCoreColor, setCoreColor, clearWorkspace, undo, past, addComponent, userMode, setMode } = useElectricalStore();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const handleDragStart = (e: React.DragEvent, type: ComponentType) => {
@@ -813,20 +814,36 @@ export const Toolbox: React.FC = () => {
       </button>
 
       <div className={`p-4 flex flex-col justify-between h-full overflow-y-auto transition-opacity duration-200 ${isCollapsed ? 'opacity-0 pointer-events-none hidden' : 'opacity-100'}`}>
-        <div className="space-y-6">
-
+        <div className="space-y-5">
+          
+          {/* Simulation Mode Selector (Relocated cleanly from deleted Header) */}
           <div>
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-2">Conductor Colour</span>
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1.5">Simulation Mode</span>
+            <div className="flex bg-zinc-950 border border-zinc-800 p-0.5 rounded w-full">
+              {(['Apprentice', 'Electrician'] as UserMode[]).map(m => (
+                <button key={m} onClick={() => setMode(m)}
+                  className={`flex-1 py-1 text-xs rounded font-medium transition-all ${userMode === m ? 'bg-amber-500 text-black font-semibold' : 'text-zinc-400 hover:text-zinc-200'}`}>
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Expanded 3-Core Conductor Colors Selection Grid */}
+          <div>
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1.5">Conductor Cable Cores</span>
             <div className="grid grid-cols-2 gap-1.5">
               {[
                 { id: 'Brown', name: 'Live (Brn)', bg: 'bg-amber-700' },
                 { id: 'Blue', name: 'Neutral (Blu)', bg: 'bg-blue-500' },
                 { id: 'GreenYellow', name: 'Earth (G/Y)', bg: 'bg-emerald-500' },
-                { id: 'Yellow', name: 'Strapwire (Ylw)', bg: 'bg-yellow-400' },
+                { id: 'Yellow', name: 'Strap (Ylw)', bg: 'bg-yellow-400' },
+                { id: 'Black', name: '3-Core (Blk)', bg: 'bg-zinc-900 border border-zinc-700' },
+                { id: 'Grey', name: '3-Core (Gry)', bg: 'bg-zinc-400' },
               ].map(wire => (
                 <button key={wire.id} onClick={() => setCoreColor(wire.id as any)}
                   className={`p-2 rounded text-[11px] font-mono font-medium border flex items-center gap-2 transition-all ${selectedCoreColor === wire.id ? 'border-amber-400 bg-zinc-900 text-white' : 'border-zinc-800 bg-zinc-950 text-zinc-400'}`}>
-                  <div className={`w-3 h-3 rounded-full flex-shrink-0 ${wire.bg}`} />
+                  <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${wire.bg}`} />
                   {wire.name}
                 </button>
               ))}
@@ -834,7 +851,7 @@ export const Toolbox: React.FC = () => {
           </div>
 
           <div>
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-2">Component Inventory</span>
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1.5">Component Inventory</span>
             <div className="space-y-2">
               {[
                 { type: 'ConsumerUnit', name: 'UK Consumer Unit', desc: '230V L/N/E source' },
@@ -863,9 +880,8 @@ export const Toolbox: React.FC = () => {
           </div>
 
           <div className="bg-zinc-950 border border-zinc-800 rounded p-3 text-[9px] font-mono text-zinc-500 space-y-1">
-            <div className="text-amber-400 font-bold text-[10px] mb-2">Component Tips</div>
-            <div className="text-zinc-400 font-bold">Connector Block:</div>
-            <div>Left ports bridge directly to their corresponding Right ports. Useful for splitting feeds or extending cables cleanly.</div>
+            <div className="text-amber-400 font-bold text-[10px] mb-1">UK Core Setup Tips</div>
+            <div>Standard 3-Core and Earth flat cables use <span className="text-zinc-300 font-semibold">Brown, Black, and Grey</span> conductors alongside a bare ground conductor wire. Usually leveraged inside complex multiway switch wiring networks.</div>
           </div>
 
           <div className="flex gap-2">
@@ -892,7 +908,7 @@ export const Toolbox: React.FC = () => {
 
         <div className="mt-4 bg-zinc-950 p-3 rounded border border-zinc-800/80 font-mono text-[10px] text-zinc-500 space-y-1">
           <div className="text-emerald-500 font-bold">✓ Circuit Solver v14</div>
-          <div>● 5-Pole pass-through logic active</div>
+          <div>● Multi-core cable simulation active</div>
         </div>
       </div>
     </aside>
@@ -903,34 +919,12 @@ export const Toolbox: React.FC = () => {
 // 8. APP SHELL
 // ==========================================
 export default function App() {
-  const { userMode, setMode } = useElectricalStore();
-
   return (
-    <div className="w-screen h-screen flex flex-col bg-[#08080a] text-zinc-200 select-none overflow-hidden">
-      <header className="h-14 bg-[#0f0f12] border-b border-zinc-900 px-5 flex items-center justify-between z-10 flex-shrink-0">
-        <div className="flex items-center space-x-3">
-          <div className="bg-amber-500 text-black px-2 py-0.5 rounded text-[10px] font-black tracking-tight">UK WIRING</div>
-          <h1 className="text-xs font-bold uppercase tracking-wider text-zinc-100">
-            Electrical Lighting Simulator
-            <span className="text-zinc-600 font-mono text-[11px] font-normal lowercase pl-2">v9.0 — Junction Connector Block</span>
-          </h1>
-        </div>
-        <div className="flex bg-zinc-950 border border-zinc-800 p-0.5 rounded">
-          {(['Apprentice', 'Electrician'] as UserMode[]).map(m => (
-            <button key={m} onClick={() => setMode(m)}
-              className={`px-3 py-1 text-xs rounded font-medium transition-all ${userMode === m ? 'bg-amber-500 text-black font-semibold' : 'text-zinc-400 hover:text-zinc-200'}`}>
-              {m} Mode
-            </button>
-          ))}
-        </div>
-      </header>
-
-      <div className="flex-1 flex overflow-hidden">
-        <Toolbox />
-        <main className="flex-1 relative overflow-hidden">
-          <SimulatorCanvas />
-        </main>
-      </div>
+    <div className="w-screen h-screen flex bg-[#08080a] text-zinc-200 select-none overflow-hidden">
+      <Toolbox />
+      <main className="flex-1 relative overflow-hidden">
+        <SimulatorCanvas />
+      </main>
     </div>
   );
 }
