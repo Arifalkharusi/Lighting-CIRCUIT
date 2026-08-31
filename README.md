@@ -1,73 +1,33 @@
-# React + TypeScript + Vite
+# Domestic Electrical Designer
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A UK domestic electrical wiring trainer/simulator built with React, TypeScript, React Flow and Zustand.
 
-Currently, two official plugins are available:
+## What's in here
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **21 component types** across 7 categories: distribution (consumer unit), lighting control
+  (1-way/2-way/intermediate/dimmer switches), lighting loads (ceiling rose, pendant, downlight,
+  batten, wall light), sockets & power (single/double/outdoor/USB), FCUs & control units
+  (switched/unswitched FCU, cooker control unit), appliances (boiler, immersion heater, extractor
+  fan), and junctions (5-pole connector block, 4-terminal junction box).
+- **Cable size selection** — pick core colour *and* CSA (1.0–16.0 mm²) before drawing a wire; wires
+  are labelled and rendered with thickness that scales with CSA. A built-in reference panel covers
+  standard UK cable sizes and typical circuit design (cable + protective device) for lighting,
+  sockets, cookers, showers, immersion heaters, boilers, and extractor fans.
+- **Manual wiring only** — nothing auto-connects. Drag between two terminal pins to draw a
+  conductor in the selected colour/CSA; click a wire and hit delete to remove it.
+- **Live circuit solver** — traces L / N / E continuity from the consumer unit through every
+  component's internal bridging logic (switch positions, FCU on/off, loop-in ceiling roses,
+  junction boxes, etc.) and lights up lamps/appliances/sockets accordingly.
+- Redesigned UI: header bar, collapsible categorised toolbox, minimap, undo/reset.
 
-## React Compiler
+## Running it
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Notes
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+- Cable/circuit reference figures are indicative only (Method C, twin & earth). Always verify
+  against BS 7671 for real designs — this is a wiring-logic trainer, not a design tool.
